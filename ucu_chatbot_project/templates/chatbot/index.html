@@ -1,0 +1,66 @@
+{% extends 'chatbot/base.html' %}
+{% block content %}
+<div id="chat">
+  <div id="messages"></div>
+  <div id="inputRow">
+    <input id="message" placeholder="Ask about courses, campus life, admin..." autocomplete="off"/>
+    <button id="sendBtn">Send</button>
+  </div>
+</div>
+
+<script>
+const messagesDiv = document.getElementById('messages');
+const input = document.getElementById('message');
+const sendBtn = document.getElementById('sendBtn');
+
+function appendMessage(text, role){
+  const d = document.createElement('div');
+  d.className = 'msg ' + (role === 'user' ? 'user' : 'assistant');
+  d.textContent = text;
+  messagesDiv.appendChild(d);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+async function sendMessage(){
+  const text = input.value.trim();
+  if(!text) return;
+  appendMessage(text, 'user');
+  input.value = '';
+  sendBtn.disabled = true;
+  try{
+    const res = await fetch('/api/chat/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+      body: JSON.stringify({message: text})
+    });
+    const data = await res.json();
+    if(data.reply) appendMessage(data.reply,'assistant');
+    else if(data.error) appendMessage('Error: '+data.error,'assistant');
+    else appendMessage('No reply','assistant');
+  }catch(err){
+    appendMessage('Network error: '+err.message,'assistant');
+  }finally{
+    sendBtn.disabled = false;
+  }
+}
+
+sendBtn.addEventListener('click', sendMessage);
+input.addEventListener('keydown', e => { if(e.key === 'Enter') sendMessage(); });
+
+// helper to get csrftoken
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+</script>
+{% endblock %}
